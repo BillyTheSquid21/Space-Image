@@ -4,45 +4,59 @@
 
 #include <iostream>
 #include <fstream>
-#include <cstring>
-#include <cstddef>
+#include <string>
+#include <vector>
 
 namespace SpaceImage
 {
+	struct MetaElement
+	{
+		std::string keyword;
+		std::string data;
+	};
+
 	struct ImageMeta
 	{
 		uint32_t width;
 		uint32_t height;
+		uint8_t bitdepth;
+		uint8_t colorType;
+		std::vector<MetaElement> metaElements;
+		bool error = false;
 	};
 
 	enum class PngChunkType
 	{
-		IHDR = 0x49484452, tEXt = 0x74455874, IEND = 0x49454e44, IDAT = 0x49444154
+		NULLTYPE = 0, IHDR = 0x49484452, tEXt = 0x74455874, IEND = 0x49454e44, IDAT = 0x49444154
 	};
 	
 	struct PngChunk
 	{
 		uint32_t length;
-		PngChunkType type;
-		uint8_t* data;
+		PngChunkType type = PngChunkType::NULLTYPE;
+		uint8_t* data = nullptr;
 		uint32_t crc;
 	};
 
-	bool ReadImage(const char* path);
+	ImageMeta ReadImage(const char* path);
 
-	inline static bool ReadHeader(const char* path);
+	inline static bool ProcessFile(const char* path, ImageMeta& meta);
 	inline static bool GetNextPngChunk(std::ifstream& infile, PngChunk& chunk);
 	inline static void FreePngChunk(PngChunk& chunk);
 	inline static bool IsPngChunkUseful(uint32_t type);
+	inline static void GetPngIHDRMeta(PngChunk& chunk, ImageMeta& meta);
+	inline static void GetPngTEXTMeta(PngChunk& chunk, ImageMeta& meta);
 
-	bool ReadImage(const char* path)
+	ImageMeta ReadImage(const char* path)
 	{
-		return ReadHeader(path);
+		ImageMeta meta;
+		meta.error = ProcessFile(path, meta);
+		return meta;
 	}
 
 	void FreePngChunk(PngChunk& chunk)
 	{
-		delete chunk.data;
+		delete[] chunk.data;
 	}
 
 	bool IsPngChunkUseful(uint32_t type)
@@ -53,9 +67,58 @@ namespace SpaceImage
 			return true;
 		case (uint32_t)PngChunkType::tEXt:
 			return true;
+		case (uint32_t)PngChunkType::IEND:
+			return true;
 		default:
 			return false;
 		}
+	}
+
+	void GetPngTEXTMeta(PngChunk& chunk, ImageMeta& meta)
+	{
+		//Read keyword
+		std::string keyword = "";
+		int keywordLength = 0;
+		for (int i = 0; i < chunk.length; i++)
+		{
+			if (chunk.data[i] == 0)
+			{
+				break;
+			}
+			keyword += (char)chunk.data[i];
+			keywordLength++;
+		}
+
+		//Read text
+		std::string data = "";
+		for (int i = keywordLength; i < chunk.length; i++)
+		{
+			data += (char)chunk.data[i];
+		}
+
+		meta.metaElements.push_back({ keyword, data });
+	}
+
+	void GetPngIHDRMeta(PngChunk& chunk, ImageMeta& meta)
+	{
+		//Get width
+		uint32_t width = 0;
+		for (int i = 0; i < 4; i++)
+		{
+			width |= chunk.data[i] << (3 - i) * 8;
+		}
+		//Get height
+		uint32_t height = 0;
+		for (int i = 0; i < 4; i++)
+		{
+			height |= chunk.data[i + 4] << (3 - i) * 8;
+		}
+		//Get bit depth
+		uint8_t bitdepth = chunk.data[8];
+		//Get color type
+		uint8_t colorType = chunk.data[9];
+
+		meta.width = width; meta.height = height; meta.bitdepth = bitdepth; meta.colorType = colorType;
 	}
 
 	bool GetNextPngChunk(std::ifstream& infile, PngChunk& chunk)
@@ -79,7 +142,16 @@ namespace SpaceImage
 		}
 		if (!IsPngChunkUseful(type))
 		{
+			//Advance
+			int seekLength = length + 4;
+			infile.seekg(seekLength, std::ios::cur);
+			chunk.type = PngChunkType::NULLTYPE;
 			return false;
+		}
+		//Clear any existing data
+		if (chunk.data)
+		{
+			delete[] chunk.data;
 		}
 
 		//Data
@@ -95,11 +167,11 @@ namespace SpaceImage
 			crc |= crcBuffer[i] << 3 - i;
 		}
 
-		chunk = {length, PngChunkType::IDAT, dataBuffer, crc};
+		chunk = {length, (PngChunkType)type, dataBuffer, crc};
 		return true;
 	}
 
-	bool ReadHeader(const char* path)
+	bool ProcessFile(const char* path, ImageMeta& meta)
 	{
 		//open file
 		uint8_t buffer[8];
@@ -127,8 +199,19 @@ namespace SpaceImage
 		}
 
 		PngChunk chunk;
-		GetNextPngChunk(infile, chunk);
-
+		while (chunk.type != PngChunkType::IEND)
+		{
+			GetNextPngChunk(infile, chunk);
+			if (chunk.type == PngChunkType::IHDR)
+			{
+				GetPngIHDRMeta(chunk, meta);
+			}
+			if (chunk.type == PngChunkType::tEXt)
+			{
+				GetPngTEXTMeta(chunk, meta);
+			}
+		}
+		FreePngChunk(chunk);
 		return 1;
 	}
 }
