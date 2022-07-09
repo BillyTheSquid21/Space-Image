@@ -20,7 +20,7 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="MetaRead.hpp">
+    <ClInclude Include="SpaceImage.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <iostream>
-#include "MetaRead.hpp"
+#include "SpaceImage.hpp"
 
 int main()
 {

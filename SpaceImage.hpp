@@ -22,7 +22,7 @@ namespace SpaceImage
 		uint8_t bitdepth;
 		uint8_t colorType;
 		std::vector<MetaElement> metaElements;
-		bool error = false;
+		bool error = false; //Checks if file had an error - if not error is likely not from here
 	};
 
 	enum class PngChunkType
@@ -35,14 +35,14 @@ namespace SpaceImage
 		uint32_t length;
 		PngChunkType type = PngChunkType::NULLTYPE;
 		uint8_t* data = nullptr;
-		uint32_t crc;
 	};
 
 	ImageMeta ReadImage(const char* path);
 
 	inline static bool ProcessFile(const char* path, ImageMeta& meta);
+
+	//PNG
 	inline static bool GetNextPngChunk(std::ifstream& infile, PngChunk& chunk);
-	inline static void FreePngChunk(PngChunk& chunk);
 	inline static bool IsPngChunkUseful(uint32_t type);
 	inline static void GetPngIHDRMeta(PngChunk& chunk, ImageMeta& meta);
 	inline static void GetPngTEXTMeta(PngChunk& chunk, ImageMeta& meta);
@@ -52,11 +52,6 @@ namespace SpaceImage
 		ImageMeta meta;
 		meta.error = ProcessFile(path, meta);
 		return meta;
-	}
-
-	void FreePngChunk(PngChunk& chunk)
-	{
-		delete[] chunk.data;
 	}
 
 	bool IsPngChunkUseful(uint32_t type)
@@ -158,16 +153,10 @@ namespace SpaceImage
 		uint8_t* dataBuffer = new uint8_t[length];
 		infile.read((char*)dataBuffer, length);
 
-		//Crc
-		uint8_t crcBuffer[4];
-		infile.read((char*)crcBuffer, 4);
-		uint32_t crc = 0;
-		for (int i = 0; i < 4; i++)
-		{
-			crc |= crcBuffer[i] << 3 - i;
-		}
+		//Skip CRC
+		infile.seekg(4, std::ios::cur);
 
-		chunk = {length, (PngChunkType)type, dataBuffer, crc};
+		chunk = {length, (PngChunkType)type, dataBuffer};
 		return true;
 	}
 
@@ -194,11 +183,13 @@ namespace SpaceImage
 		}
 		if (check != 255)
 		{
-			std::cout << "File is not a PNG!" << std::endl;
+			std::cout << "File is not a PNG! Only PNG is currently supported." << std::endl;
 			return 0;
 		}
 
 		PngChunk chunk;
+		const uint32_t MAX_DATA = UINT32_MAX;
+		uint32_t currentDataOffset = 0;
 		while (chunk.type != PngChunkType::IEND)
 		{
 			GetNextPngChunk(infile, chunk);
@@ -210,8 +201,21 @@ namespace SpaceImage
 			{
 				GetPngTEXTMeta(chunk, meta);
 			}
+			if (currentDataOffset > MAX_DATA)
+			{
+				std::cout << "File was too large!" << std::endl;
+				delete[] chunk.data;
+				return 0;
+			}
+			currentDataOffset++;
 		}
-		FreePngChunk(chunk);
+
+		//Clear data
+		infile.close();
+		if (chunk.data)
+		{
+			delete[] chunk.data;
+		}
 		return 1;
 	}
 }
