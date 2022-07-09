@@ -140,6 +140,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="SpaceImage.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="SpaceImage.hpp" />
