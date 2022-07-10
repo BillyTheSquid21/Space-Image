@@ -4,7 +4,7 @@
 
 int main()
 {
-	SpaceImage::ImageMeta meta = SpaceImage::ReadImage("test.png");
+	SpaceImage::ImageMeta meta = SpaceImage::ReadImage("torterra2.png");
 	for (int i = 0; i < meta.metaElements.size(); i++)
 	{
 		std::cout << meta.metaElements[i].keyword << " " << std::endl;
