@@ -2,7 +2,7 @@
 Lightweight functions for retreival of image metadata
 
 # Usage
-- Include the "SpaceImage.hpp" header in your project 
+- Include the "SpaceImage.hpp" header in your project along with the cpp file
 - Create an instance of the "ImageMeta" struct from the "SpaceImage" namespace
 - Call "ReadImage(const char* path)" with the path to the file to retrieve the metadata (only currently functions with PNG)
 
