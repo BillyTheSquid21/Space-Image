@@ -1,4 +1,3 @@
-#pragma once
 #ifndef META_READ_H
 #define META_READ_H
 
