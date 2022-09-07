@@ -28,3 +28,4 @@ for (int i = 0; i < meta.metaElements.size(); i++)
     std::cout << meta.metaElements[i].data << std::endl;
 }
 ```
+The use case I personally use this for is retaining important data from conversion between GIF format to PNG - for use in OpenGL where animated GIFs are not used
